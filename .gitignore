@@ -1,0 +1,13 @@
+# Mengabaikan file konfigurasi database lokal yang berisi password
+core/config.php
+config.php
+
+# Mengabaikan file log bawaan server atau sistem operasi
+*.log
+.DS_Store
+
+# Mengabaikan folder environment jika nanti pakai Node.js / Python
+node_modules/
+venv/
+
+config/database.php

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agung Intelligence | AI Assistant</title>
+    
+    <script src="assets/tailwind.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+    <script src="assets/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        ::-webkit-scrollbar { width: 5px; height: 5px; } 
+        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 10px; }
+        .recording-active { animation: pulse 1.5s infinite; color: #ef4444; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        /* --- ATURAN KODE MARKDOWN --- */
+        .msg-text pre {
+            background-color: #1a202c; 
+            color: #e2e8f0;            
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+            overflow-x: auto;          
+            white-space: pre-wrap;     
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.875rem;       
+        }
+        .msg-text code {
+            font-family: monospace;
+            background-color: rgba(156, 163, 175, 0.2); 
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-[#0b0e14] text-gray-800 dark:text-gray-100 font-sans h-screen flex overflow-hidden transition-colors duration-300">
+
+    <div class="hidden md:flex flex-col w-64 bg-gray-100 dark:bg-[#171923] p-4 border-r border-gray-200 dark:border-gray-800 h-full">
+       <button id="new-chat-btn" class="flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg p-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition w-full">
+            <i class="fas fa-plus"></i> Chat Baru
+        </button>
+        <div class="mt-8 flex-1 overflow-y-auto text-sm">
+            <p class="text-xs text-gray-500 uppercase font-bold mb-4">Riwayat</p>
+            <div id="session-container" class="space-y-1"></div>
+        </div>
+    </div>
+
+<div class="flex-1 flex flex-col h-full overflow-hidden">
+        
+        <header class="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#0b0e14]">
+            <h1 class="text-xl font-bold bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+                Agung Intelligence
+            </h1>
+            
+            <div class="flex items-center gap-3">
+                <div class="relative hidden sm:block">
+                    <select id="model-select" class="bg-gray-100 dark:bg-gray-800 text-[10px] font-bold rounded-full px-4 py-2 outline-none border border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-purple-500 appearance-none cursor-pointer pr-8 uppercase tracking-wider">
+                        <optgroup label="Google Gemini">
+                            <option value="gemini-flash" selected>Gemini 2.5 Flash (Cepat)</option>
+                            <option value="gemini-pro">Gemini 2.5 Pro (Cerdas)</option>
+                        </optgroup>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                        <i class="fas fa-chevron-down text-[8px]"></i>
+                    </div>
+                </div>
+
+                <button onclick="toggleDarkMode()" class="p-2 w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center">
+                    <i id="theme-icon" class="fas fa-moon text-gray-600 dark:text-yellow-400"></i>
+                </button>
+
+                <div class="flex items-center">
+                    <span class="text-[10px] bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded-full font-bold">ONLINE</span>
+                </div>
+            </div>
+        </header>
+
+        <div id="chat-container" class="flex-1 overflow-y-auto p-4 md:px-20 space-y-6 bg-gray-50 dark:bg-[#0b0e14]">
+            <div class="flex gap-4">
+                <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs text-white">AI</div>
+                <div class="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 p-4 rounded-2xl max-w-[85%] text-sm">
+                    Hai, Agung Intelligence di sini! Ada yang bisa saya bantu hari ini?
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 md:px-20 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0b0e14]">
+            <div class="max-w-4xl mx-auto flex items-end gap-2">
+                <button id="vn-btn" onclick="toggleVoiceNote()" class="p-4 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                    <i id="mic-icon" class="fas fa-microphone text-xl text-gray-500"></i>
+                </button>
+
+                <div class="relative flex-1">
+                    <textarea id="user-input" rows="1" class="w-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-white rounded-2xl p-4 pr-12 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none transition" placeholder="Ketik pesan..."></textarea>
+                    <button onclick="sendMessage()" class="absolute right-3 bottom-3 text-purple-500 hover:text-purple-400">
+                        <i class="fas fa-paper-plane text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <p class="text-[10px] text-center text-gray-400 mt-2">Agung Intelligence v1.1 • Dev by Rizqy Agung Saputra</p>
+        </div>
+    </div>
+
+    <template id="tmpl-user">
+        <div class="flex gap-4 flex-row-reverse text-right mb-4">
+            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">R</div>
+            <div class="bg-blue-600 text-white p-3 rounded-2xl max-w-[85%] shadow-md shadow-blue-500/20 text-sm text-left">
+                <span class="msg-model block text-[9px] opacity-70 mb-1 uppercase font-bold"></span>
+                <div class="msg-text"></div>
+            </div>
+        </div>
+    </template>
+
+    <template id="tmpl-typing">
+        <div class="flex gap-4 mb-4">
+            <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs text-white">AI</div>
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-2xl text-sm italic text-gray-500">
+                Agung Intelligence sedang berpikir...
+            </div>
+        </div>
+    </template>
+
+    <template id="tmpl-ai">
+        <div class="flex gap-4 mb-4">
+            <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs text-white">AI</div>
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-2xl max-w-[85%] shadow-sm text-sm">
+                <p class="msg-model text-[10px] text-purple-500 font-bold uppercase mb-1"></p>
+                <div class="msg-text whitespace-pre-wrap"></div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        // State ID sesi yang sedang aktif global
+        let currentActiveSessionId = 1;
+
+        // Inisialisasi awal saat DOM selesai dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            loadChatSessions();
+
+            const newChatBtn = document.getElementById('new-chat-btn');
+            if (newChatBtn) {
+                newChatBtn.addEventListener('click', createNewChatSession);
+            }
+        });
+
+        // Fungsi membuat sesi chat baru di database
+        async function createNewChatSession() {
+            try {
+                const response = await fetch('api/create_session.php');
+                const data = await response.json();
+
+                if (data.status === "success") {
+                    currentActiveSessionId = data.session_id;
+                    
+                    const chatContainer = document.getElementById('chat-container');
+                    if (chatContainer) {
+                        chatContainer.innerHTML = `
+                            <div class="flex gap-4">
+                                <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs text-white">AI</div>
+                                <div class="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 p-4 rounded-2xl max-w-[85%] text-sm">
+                                    Hai, Agung Intelligence di sini! Ada yang bisa saya bantu hari ini?
+                                </div>
+                            </div>`;
+                    }
+                    
+                    await loadChatSessions();
+                }
+            } catch (error) {
+                console.error("Gagal membuat sesi baru:", error);
+            }
+        }
+
+        // 1. Fungsi Kirim Pesan
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const container = document.getElementById('chat-container');
+            const modelSelect = document.getElementById('model-select');
+            
+            if (!input || !container || !modelSelect) return;
+            
+            const model = modelSelect.value;
+            const message = input.value.trim();
+            if (message === "") return;
+
+            const tUser = document.getElementById('tmpl-user').content.cloneNode(true);
+            tUser.querySelector('.msg-model').textContent = model;
+            tUser.querySelector('.msg-text').textContent = message;
+            container.appendChild(tUser);
+
+            input.value = "";
+            container.scrollTop = container.scrollHeight;
+
+            const tTyping = document.getElementById('tmpl-typing').content.cloneNode(true);
+            const typingWrapper = document.createElement('div');
+            const typingId = "typing-" + Date.now();
+            typingWrapper.id = typingId;
+            typingWrapper.appendChild(tTyping);
+            container.appendChild(typingWrapper);
+            container.scrollTop = container.scrollHeight;
+
+            try {
+                const response = await fetch('api/process.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: message, 
+                        model: model,
+                        session_id: currentActiveSessionId 
+                    })
+                });
+
+                const data = await response.json();
+                
+                const typingElement = document.getElementById(typingId);
+                if (typingElement) typingElement.remove();
+                
+                const tAi = document.getElementById('tmpl-ai').content.cloneNode(true);
+                tAi.querySelector('.msg-model').textContent = model;
+                const rawReply = data.reply || 'Tidak ada respon dari server.';
+                tAi.querySelector('.msg-text').innerHTML = marked.parse(rawReply); 
+                container.appendChild(tAi);
+
+                // Update judul secara async tanpa merusak visual active state
+                await loadChatSessions();
+
+            } catch (error) {
+                const typingElement = document.getElementById(typingId);
+                if (typingElement) {
+                    typingElement.innerHTML = '<div class="bg-red-900/20 border border-red-500 text-red-400 p-3 rounded-2xl text-xs">Terjadi kesalahan koneksi ke server Agung Intelligence.</div>';
+                }
+            }
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // 2. Event Enter
+        document.getElementById('user-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); 
+                sendMessage();
+            }
+        });
+
+        // 3. Fungsi Dark Mode
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                icon.classList.replace('fa-moon', 'fa-sun');
+                icon.classList.replace('text-yellow-400', 'text-gray-600');
+            } else {
+                html.classList.add('dark');
+                icon.classList.replace('fa-sun', 'fa-moon');
+                icon.classList.replace('text-gray-600', 'text-yellow-400');
+            }
+        }
+
+        // 4. Voice Note Simulation
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        let isRecording = false;
+        
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true; 
+            recognition.lang = 'id-ID';
+
+            recognition.onresult = function(event) {
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                const userInput = document.getElementById('user-input');
+                if (userInput) {
+                    userInput.value = finalTranscript || interimTranscript;
+                    userInput.style.height = 'auto';
+                    userInput.style.height = userInput.scrollHeight + 'px';
+                }
+            };
+
+            recognition.onerror = function(event) {
+                console.error("Speech recognition error:", event.error);
+                if (event.error === 'network') {
+                    alert("Brave memblokir Speech API Google! Solusi: Matikan Shield atau aktifkan Google Services di setelan Brave.");
+                }
+            };
+        }
+
+        function toggleVoiceNote() {
+            const micIcon = document.getElementById('mic-icon');
+            if (!micIcon) return;
+
+            if (!SpeechRecognition) {
+                alert("Browser tidak mendukung Speech-to-Text.");
+                return;
+            }
+
+            if (!isRecording) {
+                try {
+                    recognition.start();
+                    isRecording = true;
+                    micIcon.classList.add('recording-active', 'fa-stop');
+                    micIcon.classList.remove('fa-microphone');
+                } catch (e) {
+                    console.error(e);
+                }
+            } else {
+                try {
+                    recognition.stop();
+                    isRecording = false;
+                    micIcon.classList.remove('recording-active', 'fa-stop');
+                    micIcon.classList.add('fa-microphone');
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        }
+
+        // 5. Fungsi Mengambil Riwayat Chat dari Database MySQL (VERSI FIX & BERSIH)
+        async function loadChatSessions() {
+            const container = document.getElementById('session-container');
+            if (!container) return;
+
+            try {
+                const response = await fetch('api/get_sessions.php');
+                const sessions = await response.json();
+
+                container.innerHTML = '';
+
+                if (sessions.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-gray-400 italic p-2">Belum ada riwayat chat.</p>';
+                    return;
+                }
+
+                sessions.forEach(session => {
+                    const sessionItem = document.createElement('div');
+                    const isActive = session.id === currentActiveSessionId;
+                    
+                    sessionItem.className = `group p-2 rounded cursor-pointer transition flex items-center justify-between gap-2 block w-full text-left mt-1 ${isActive ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-semibold' : 'hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`;
+                    
+                    sessionItem.innerHTML = `
+                        <div class="flex items-center gap-2 truncate flex-1" onclick="selectSession(${session.id})">
+                            <i class="far fa-comment-alt text-xs opacity-60"></i> 
+                            <span class="truncate">${session.title}</span>
+                        </div>
+                        <button onclick="deleteChatSession(event, ${session.id})" class="text-gray-400 hover:text-red-500 p-1 rounded transition opacity-0 group-hover:opacity-100 focus:opacity-100" title="Hapus Chat">
+                            <i class="fas fa-trash-alt text-xs"></i>
+                        </button>
+                    `;
+
+                    container.appendChild(sessionItem);
+                });
+            } catch (error) {
+                console.error("Gagal memuat sesi chat:", error);
+            }
+        }
+
+        // Fungsi pembantu saat memilih sesi di sidebar
+        function selectSession(sessionId) {
+            currentActiveSessionId = sessionId;
+            loadChatSessions(); 
+            loadChatHistory(sessionId); 
+        }
+
+        // Fungsi Eksekusi Hapus Sesi Chat via API
+        async function deleteChatSession(event, sessionId) {
+            event.stopPropagation(); 
+
+            if (!confirm("Apakah kamu yakin ingin menghapus riwayat chat ini?")) return;
+
+            try {
+                const response = await fetch(`api/delete_session.php?session_id=${sessionId}`);
+                const data = await response.json();
+
+                if (data.status === "success") {
+                    if (sessionId === currentActiveSessionId) {
+                        const chatContainer = document.getElementById('chat-container');
+                        if (chatContainer) {
+                            chatContainer.innerHTML = `
+                                <div class="flex gap-4">
+                                    <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs text-white">AI</div>
+                                    <div class="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 p-4 rounded-2xl max-w-[85%] text-sm">
+                                        Sesi chat telah dihapus. Silakan pilih sesi lain di sidebar atau buat chat baru!
+                                    </div>
+                                </div>`;
+                        }
+                        currentActiveSessionId = 0; 
+                    }
+                    loadChatSessions();
+                } else {
+                    alert("Gagal menghapus: " + data.message);
+                }
+            } catch (error) {
+                console.error("Error saat menghapus sesi:", error);
+            }
+        }
+
+        // 6. Fungsi Memuat Riwayat Pesan Berdasarkan Sesi yang Diklik
+        async function loadChatHistory(sessionId) {
+            const chatContainer = document.getElementById('chat-container'); 
+            if (!chatContainer) return;
+
+            try {
+                const response = await fetch(`api/get_chat_messages.php?session_id=${sessionId}`);
+                const messages = await response.json();
+
+                chatContainer.innerHTML = '';
+
+                if (messages.length === 0) {
+                    chatContainer.innerHTML = `
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs text-white">AI</div>
+                            <div class="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 p-4 rounded-2xl max-w-[85%] text-sm">
+                                Belum ada obrolan di sesi ini. Yuk mulai ketik sesuatu!
+                            </div>
+                        </div>`;
+                    return;
+                }
+
+                messages.forEach(msg => {
+                    const msgDiv = document.createElement('div');
+                    if (msg.sender === 'user') {
+                        msgDiv.className = "flex justify-end mb-4";
+                        msgDiv.innerHTML = `
+                            <div class="flex items-end gap-2 max-w-[75%] flex-row-reverse">
+                                <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">R</div>
+                                <div class="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none shadow-md text-sm">
+                                    <span class="text-[10px] block opacity-70 uppercase font-bold mb-1">${msg.model_used}</span>
+                                    <div class="msg-text">${msg.message}</div>
+                                </div>
+                            </div>`;
+                    } else {
+                        msgDiv.className = "flex justify-start mb-4";
+                        msgDiv.innerHTML = `
+                            <div class="flex items-end gap-2 max-w-[75%]">
+                                <div class="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-sm">AI</div>
+                                <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-2xl rounded-tl-none shadow-sm text-sm">
+                                    <span class="text-[10px] block text-purple-500 uppercase font-bold mb-1">${msg.model_used}</span>
+                                    <div class="msg-text whitespace-pre-wrap">${marked.parse(msg.message)}</div>
+                                </div>
+                            </div>`;
+                    }
+                    chatContainer.appendChild(msgDiv);
+                });
+
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            } catch (error) {
+                console.error("Gagal memuat pesan chat:", error);
+            }
+        }
+    </script>
+</body>
+</html>
